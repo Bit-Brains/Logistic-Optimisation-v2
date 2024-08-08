@@ -17,7 +17,7 @@ model User {
     UserID Int @id @default(autoincrement())
     Firstname String
     Lastname String
-    Email String
+    Email String @unique
     Phone String
     Password String
     UserType UserType
