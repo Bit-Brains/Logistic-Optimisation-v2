@@ -3,10 +3,48 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
+import twilio from "twilio";
+import { generateOTP } from "../helper/utility";
 dotenv.config();
 
 const prisma = new PrismaClient();
 const secretKey = process.env.SECRET_KEY || "secretKey";
+const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+export const sendOTP = async (req: Request, res: Response) => {
+  const { phone, countryCode } = req.body;
+
+  const otp = generateOTP();
+  const expirationTime = new Date(new Date().getTime() + 10 * 60000); // OTP expires in 10 minutes.
+
+  try {
+    await prisma.oTP.create({
+      data: {
+        phone: phone,
+        otp: otp,
+        expirationTime: expirationTime
+      }
+    });
+
+    const toNumber = `${countryCode}${phone}`
+
+    await twilioClient.messages.create({
+      body: `Your verification code is ${otp}`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: toNumber
+    });
+
+    res.status(200).json({
+      message: "OTP sent successfully"
+    })
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      message: "Internal Server Error"
+    });
+  }
+}
+
 
 export const CustomerSignup = async (req: Request, res: Response) => {
   const { firstname, lastname, password, email, userType, additionalInfo, phone } = req.body;

@@ -12,14 +12,47 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.login = exports.CustomerSignup = void 0;
+exports.login = exports.CustomerSignup = exports.sendOTP = void 0;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const client_1 = require("@prisma/client");
+const twilio_1 = __importDefault(require("twilio"));
+const utility_1 = require("../helper/utility");
 dotenv_1.default.config();
 const prisma = new client_1.PrismaClient();
 const secretKey = process.env.SECRET_KEY || "secretKey";
+const twilioClient = (0, twilio_1.default)(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+const sendOTP = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { phone, countryCode } = req.body;
+    const otp = (0, utility_1.generateOTP)();
+    const expirationTime = new Date(new Date().getTime() + 10 * 60000); // OTP expires in 10 minutes.
+    try {
+        yield prisma.oTP.create({
+            data: {
+                phone: phone,
+                otp: otp,
+                expirationTime: expirationTime
+            }
+        });
+        const toNumber = `${countryCode}${phone}`;
+        yield twilioClient.messages.create({
+            body: `Your verification code is ${otp}`,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: toNumber
+        });
+        res.status(200).json({
+            message: "OTP sent successfully"
+        });
+    }
+    catch (err) {
+        console.log(err);
+        res.status(500).json({
+            message: "Internal Server Error"
+        });
+    }
+});
+exports.sendOTP = sendOTP;
 const CustomerSignup = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { firstname, lastname, password, email, userType, additionalInfo, phone } = req.body;
     try {

@@ -55,7 +55,7 @@ enum UserType {
 
 model OTP {
     id Int @id @default(autoincrement())
-    phone String @unique
+    phone String
     otp String
     expirationTime DateTime
     createdAt DateTime @default(now())
